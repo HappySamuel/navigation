@@ -130,6 +130,8 @@ namespace dwa_local_planner {
       nav_core::warnRenamedParameter(private_nh, "acc_lim_trans", "acc_limit_trans");
       nav_core::warnRenamedParameter(private_nh, "theta_stopped_vel", "rot_stopped_vel");
 
+      private_nh.param<double>("path_heading_tolerance", path_heading_tolerance_, 1.57); //SAMUEL
+
       dsrv_ = new dynamic_reconfigure::Server<DWAPlannerConfig>(private_nh);
       dynamic_reconfigure::Server<DWAPlannerConfig>::CallbackType cb = boost::bind(&DWAPlannerROS::reconfigureCB, this, _1, _2);
       dsrv_->setCallback(cb);
@@ -298,6 +300,25 @@ namespace dwa_local_planner {
           odom_helper_,
           current_pose_,
           boost::bind(&DWAPlanner::checkTrajectory, dp_, _1, _2, _3));
+//SAMUEL - Check if need to correct heading to the path ---------------------------
+    } else if (latchedStopRotateController_.isHeadingCorrectionNeeded(path_heading_tolerance_, &planner_util_, current_pose_)) {
+      ROS_DEBUG_NAMED("dwa_local_planner", "HeadingCorrectionNeeded");
+      std::vector<geometry_msgs::PoseStamped> local_plan;
+      std::vector<geometry_msgs::PoseStamped> transformed_plan;
+      publishGlobalPlan(transformed_plan);
+      publishLocalPlan(local_plan);
+      base_local_planner::LocalPlannerLimits limits = planner_util_.getCurrentLimits();
+      // Apply Heading Correction before pass to DWA
+      return latchedStopRotateController_.computeVelocityCommandsPathHeadingCorrection(
+          path_heading_tolerance_,
+          cmd_vel,
+          limits.getAccLimits(),
+          dp_->getSimPeriod(),
+          &planner_util_,
+          odom_helper_,
+          current_pose_,
+          boost::bind(&DWAPlanner::checkTrajectory, dp_, _1, _2, _3));
+//--------------------------------------------------------------------------------
     } else {
       bool isOk = dwaComputeVelocityCommands(current_pose_, cmd_vel);
       if (isOk) {
