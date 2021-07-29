@@ -78,6 +78,24 @@ public:
                             Eigen::Vector3f vel,
                             Eigen::Vector3f vel_samples)> obstacle_check);
 
+//SAMUEL - for Heading Correction USE -----------------------------------------
+  // Check if there's a need to apply Heading Correction
+  bool isHeadingCorrectionNeeded(double heading_tolerance,
+    LocalPlannerUtil* planner_util,
+    const geometry_msgs::PoseStamped& global_pose);
+
+  // Perform Heading Correction
+  bool computeVelocityCommandsPathHeadingCorrection(double heading_tolerance,
+      geometry_msgs::Twist& cmd_vel,
+      Eigen::Vector3f acc_lim,
+      double sim_period,
+      LocalPlannerUtil* planner_util,
+      OdometryHelperRos& odom_helper,
+      const geometry_msgs::PoseStamped& global_pose,
+      boost::function<bool (Eigen::Vector3f pos,
+                            Eigen::Vector3f vel,
+                            Eigen::Vector3f vel_samples)> obstacle_check);
+//------------------------------------------------------------------------------
 private:
   inline double sign(double x){
     return x < 0.0 ? -1.0 : 1.0;
