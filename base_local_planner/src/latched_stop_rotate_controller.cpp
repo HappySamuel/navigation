@@ -274,5 +274,83 @@ bool LatchedStopRotateController::computeVelocityCommandsStopRotate(geometry_msg
 
 }
 
+//SAMUEL - for Heading Correction USE -----------------------------------------
+// Perform Heading Correction
+bool LatchedStopRotateController::computeVelocityCommandsPathHeadingCorrection(double path_heading_tolerance,
+    geometry_msgs::Twist& cmd_vel,
+    Eigen::Vector3f acc_lim,
+    double sim_period,
+    LocalPlannerUtil* planner_util,
+    OdometryHelperRos& odom_helper_,
+    const geometry_msgs::PoseStamped& global_pose,
+    boost::function<bool (Eigen::Vector3f pos,
+                          Eigen::Vector3f vel,
+                          Eigen::Vector3f vel_samples)> obstacle_check) {
+  //we assume the global goal is the last point in the global plan
+  geometry_msgs::PoseStamped goal_pose;
+  if ( ! planner_util->getGoal(goal_pose)) {
+    ROS_ERROR("Could not get goal pose");
+  }
+
+  base_local_planner::LocalPlannerLimits limits = planner_util->getCurrentLimits();
+
+  //if the user wants to latch goal tolerance, if we ever reach the goal location, we'll
+  //just rotate in place
+  if (latch_xy_goal_tolerance_ && ! xy_tolerance_latch_ ) {
+    ROS_INFO("Goal position reached, stopping and turning in place");
+    xy_tolerance_latch_ = true;
+  }
+  //check to see if the goal orientation has been reached
+  double goal_th = atan2((goal_pose.pose.position.y - global_pose.pose.position.y), (goal_pose.pose.position.x - global_pose.pose.position.x));
+  double angle = base_local_planner::getGoalOrientationAngleDifference(global_pose, goal_th);
+  if (fabs(angle) <= path_heading_tolerance) {
+    //set the velocity command to zero
+    cmd_vel.linear.x = 0.0;
+    cmd_vel.linear.y = 0.0;
+    cmd_vel.angular.z = 0.0;
+    rotating_to_goal_ = false;
+  } else {
+    ROS_DEBUG("Angle: %f Tolerance: %f", angle, path_heading_tolerance);
+    geometry_msgs::PoseStamped robot_vel;
+    odom_helper_.getRobotVel(robot_vel);
+    nav_msgs::Odometry base_odom;
+    odom_helper_.getOdom(base_odom);
+
+    //if we're not stopped yet... we want to stop... taking into account the acceleration limits of the robot
+    if ( ! rotating_to_goal_ && !base_local_planner::stopped(base_odom, limits.theta_stopped_vel, limits.trans_stopped_vel)) {
+      if ( ! stopWithAccLimits(
+          global_pose,
+          robot_vel,
+          cmd_vel,
+          acc_lim,
+          sim_period,
+          obstacle_check)) {
+        ROS_INFO("Error when stopping.");
+        return false;
+      }
+      ROS_DEBUG("Stopping...");
+    }
+    //if we're stopped... then we want to rotate to goal
+    else {
+      //set this so that we know its OK to be moving
+      rotating_to_goal_ = true;
+      if ( ! rotateToGoal(
+          global_pose,
+          robot_vel,
+          goal_th,
+          cmd_vel,
+          acc_lim,
+          sim_period,
+          limits,
+          obstacle_check)) {
+        ROS_INFO("Error when rotating.");
+        return false;
+      }
+      ROS_DEBUG("Rotating...");
+    }
+  }
+  return true;
+}
+//------------------------------------------------------------------------------
 
 } /* namespace base_local_planner */
