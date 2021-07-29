@@ -151,6 +151,7 @@ namespace dwa_local_planner {
 
       bool initialized_;
 
+      double path_heading_tolerance_; //SAMUEL
 
       base_local_planner::OdometryHelperRos odom_helper_;
       std::string odom_topic_;
