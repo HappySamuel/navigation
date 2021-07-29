@@ -351,6 +351,6 @@ bool LatchedStopRotateController::computeVelocityCommandsPathHeadingCorrection(d
   }
   return true;
 }
-//------------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
 
 } /* namespace base_local_planner */
