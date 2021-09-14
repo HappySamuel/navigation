@@ -275,6 +275,28 @@ bool LatchedStopRotateController::computeVelocityCommandsStopRotate(geometry_msg
 }
 
 //SAMUEL - for Heading Correction USE -----------------------------------------
+// Check if there's a need to apply Heading Correction
+bool LatchedStopRotateController::isHeadingCorrectionNeeded(double heading_tolerance,
+    LocalPlannerUtil* planner_util,
+    const geometry_msgs::PoseStamped& global_pose) {
+
+  //we assume the global goal is the last point in the global plan
+  geometry_msgs::PoseStamped goal_pose;
+  if ( ! planner_util->getGoal(goal_pose)) {
+    return false;
+  }
+
+  //compute yaw heading of vector of global_pose to goal_pose
+  double goal_th = atan2((goal_pose.pose.position.y - global_pose.pose.position.y), (goal_pose.pose.position.x - global_pose.pose.position.x));
+  double angle = base_local_planner::getGoalOrientationAngleDifference(global_pose, goal_th);
+  //check to see if the angle is within heading tolerance
+  if (angle > heading_tolerance) {
+    return true;
+  }
+  return false;
+}
+
+//SAMUEL - for Heading Correction USE -----------------------------------------
 // Perform Heading Correction
 bool LatchedStopRotateController::computeVelocityCommandsPathHeadingCorrection(double path_heading_tolerance,
     geometry_msgs::Twist& cmd_vel,
